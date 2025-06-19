@@ -1,0 +1,1342 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LPI 102-500 Flash Cards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card {
+            perspective: 1000px;
+        }
+        .card-inner {
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            position: relative;
+            width: 100%;
+            height: 500px;
+        }
+        .card-front, .card-back {
+            backface-visibility: hidden;
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        .flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .timer {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 14px;
+            color: #333;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+    <div class="container mx-auto p-4">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-3xl font-bold">LPI 102-500 Flash Cards</h1>
+            <div class="flex items-center">
+                <input id="searchInput" type="number" min="1" max="120" placeholder="Enter question number" class="border rounded px-2 py-1 mr-2 w-40">
+                <button id="searchBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Go</button>
+            </div>
+        </div>
+        <div class="mb-4 flex justify-between items-center">
+            <button id="randomToggle" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Enable Randomization</button>
+            <div>
+                <button id="prevBtn" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 mr-2">Previous</button>
+                <button id="nextBtn" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Next</button>
+            </div>
+        </div>
+        <div id="card" class="card max-w-2xl mx-auto bg-white">
+            <div class="card-inner">
+                <div class="card-front bg-gray-200 text-center relative">
+                    <p id="questionNumber" class="text-xl font-bold mb-2"></p>
+                    <p id="question" class="text-lg font-semibold mb-4"></p>
+                    <div id="options" class="space-y-2"></div>
+                    <span id="timerFront" class="timer"></span>
+                </div>
+                <div class="card-back bg-blue-200 text-center relative">
+                    <p id="answerNumber" class="text-xl font-bold mb-2"></p>
+                    <p id="answer" class="text-lg font-semibold"></p>
+                    <span id="timerBack" class="timer"></span>
+                </div>
+            </div>
+        </div>
+        <script>
+            const questions = [
+                {
+                    question: "Which command is used to set the hostname of the local system? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "hostname",
+                    number: 1
+                },
+                {
+                    question: "Which of the following is a valid IPv6 address?",
+                    options: [
+                        "2001:db8:0g21::1",
+                        "2001:db8:4581::1",
+                        "2001:db8:3241::1",
+                        "2001%db8%9990%%1",
+                        "2001.db8.819f..1"
+                    ],
+                    answer: "2001:db8:3241::1",
+                    number: 2
+                },
+                {
+                    question: "What command, depending on its options, can display the open TCP connections, the routing tables, as well as network interface statistics? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "netstat",
+                    number: 3
+                },
+                {
+                    question: "Which command included in NetworkManager is a curses application which provides easy access to the NetworkManager on the command line? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "nmtui",
+                    number: 4
+                },
+                {
+                    question: "Which of the following tools, used for DNS debugging, reports not only the response from the name server but also details about the query?",
+                    options: ["dnsq", "hostname", "dig", "dnslookup", "zoneinfo"],
+                    answer: "dig",
+                    number: 5
+                },
+                {
+                    question: "Which of the following statements is valid in the file /etc/nsswitch.conf?",
+                    options: [
+                        "multi on",
+                        "192.168.168.4 dns-server",
+                        "namespaces: net mount procs",
+                        "include /etc/nsswitch.d/",
+                        "hosts: files dns"
+                    ],
+                    answer: "hosts: files dns",
+                    number: 6
+                },
+                {
+                    question: "Which of the following connection types, as seen in nmcli connection show, may exist in NetworkManager? (Choose three.)",
+                    options: ["tcp", "ethernet", "wifi", "ipv6", "bridge"],
+                    answer: ["ethernet", "wifi", "bridge"],
+                    number: 7
+                },
+                {
+                    question: "On a Linux workstation, the route command takes a long time before printing out the routing table. Which of the following errors does that indicate?",
+                    options: [
+                        "The local routing information may be corrupted and must be re-validated using a routing protocol.",
+                        "One of the routers in the routing table is not available which causes the automatic router failure detection mechanism (ARF-D) to wait for a timeout.",
+                        "There may accidentally be more than one default router in which case a default router election has to be done on the network in order to choose one router as the default.",
+                        "The Linux Kernel Routing Daemon (LKRD) is not running and should be started using its init script or systemd unit.",
+                        "DNS resolution may not be effective as route by default tries to resolve names of routers and destinations and may run into a timeout."
+                    ],
+                    answer: "DNS resolution may not be effective as route by default tries to resolve names of routers and may run into a timeout.",
+                    number: 8
+                },
+                {
+                    question: "What is true about the Hop Limit field in the IPv6 header?",
+                    options: [
+                        "The field is not changed during the transport of a package.",
+                        "The field is transmitted within a hop-by-hop extension header.",
+                        "Each router forwarding the packet increases the field's value.",
+                        "Each router forwarding the packet decreases the field's value.",
+                        "For multicast packages, the field's value is always 1."
+                    ],
+                    answer: "Each router forwarding the packet decreases the field's value.",
+                    number: 9
+                },
+                {
+                    question: "Which of the following nmcli subcommands exist? (Choose two.)",
+                    options: ["nmcli", "device", "wifi", "address", "connection"],
+                    answer: ["device", "connection"],
+                    number: 10
+                },
+                {
+                    question: "Which of the following changes may occur as a consequence of using the command ip? (Choose three.)",
+                    options: [
+                        "Network interfaces may become active or inactive.",
+                        "New name servers may be added to the resolver configuration.",
+                        "The system's host name may change.",
+                        "IP addresses may change.",
+                        "The routing table may change."
+                    ],
+                    answer: ["Network interfaces may become active or inactive", "IP addresses may change", "The routing table may change"],
+                    number: 11
+                },
+                {
+                    question: "How many IP addresses can be used for unique hosts inside the IPv4 subnet 192.168.2.128/26?",
+                    options: ["6", "14", "30", "62", "126"],
+                    answer: "62",
+                    number: 12
+                },
+                {
+                    question: "Which of the following IPv4 networks are reserved by IANA for private address assignment and private routing? (Choose three.)",
+                    options: [
+                        "10.0.0.0/8",
+                        "127.0.0.0/8",
+                        "169.255.0.0/16",
+                        "172.16.0.0/12",
+                        "192.168.0.0/16"
+                    ],
+                    answer: ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
+                    number: 13
+                },
+                {
+                    question: "Which of the following commands configure network interfaces based on the system's existing distribution-specific configuration files? (Choose two.)",
+                    options: ["ifconf", "ifdown", "ifpause", "ifstart", "ifup"],
+                    answer: ["ifdown", "ifup"],
+                    number: 14
+                },
+                {
+                    question: "Which of the following statements is true if the UID of a regular user is identical to the GID of a group?",
+                    options: [
+                        "UID have precedence over GIDs, therefore the user is available while the group doesn't.",
+                        "The user as well as the group are not available to avoid ambiguity due to the ID conflict.",
+                        "UIDs and GIDs are independent of each other, therefore the user as well as the group are still available.",
+                        "The user is the only member of the group, even if the group configuration contains other members.",
+                        "GIDs have precedence over UIDs, therefore the group is available while the user isn't."
+                    ],
+                    answer: "UIDs and GIDs are independent of each other, therefore the user as well as the group are still available.",
+                    number: 15
+                },
+                {
+                    question: "Which of the following information is stored in /etc/shadow for each user?",
+                    options: [
+                        "The timestamp of the user's last login",
+                        "The user's private SSH keys",
+                        "The hashed password of the user",
+                        "The numerical user ID (UID)",
+                        "The path to the user's home directory"
+                    ],
+                    answer: "hashed password of the user",
+                    number: 16
+                },
+                {
+                    question: "Which of the following commands shows all active systemd timers?",
+                    options: [
+                        "systemctl-timer show",
+                        "timectl list",
+                        "systemctl",
+                        "systemctl list-timers",
+                        "timeq"
+                    ],
+                    answer: "systemctl list-timers",
+                    number: 17
+                },
+                {
+                    question: "Which of the following tasks can the date command accomplish? (Choose two.)",
+                    options: [
+                        "Set the system's date and time.",
+                        "Set the system's date but not the time.",
+                        "Calculate the time span between two dates.",
+                        "Print a calendar for a month or a year.",
+                        "Display time in a specific format."
+                    ],
+                    answer: ["Set the system's date and time", "Display time in a specific format"],
+                    number: 18
+                },
+                {
+                    question: "Which file, if present, must contain all users that are allowed to use the cron scheduling system? (Specify the full name of the file, including path.)",
+                    options: [],
+                    answer: "/etc/cron.allow",
+                    number: 19
+                },
+                {
+                    question: "What can be specified with useradd? (Choose two.)",
+                    options: [
+                        "Commands the user can run using sudo.",
+                        "The absolute path to the user's home directory.",
+                        "Which printers are available for the new user.",
+                        "The SSH keys used to login to the new account.",
+                        "The numeric user ID (UID) of the user."
+                    ],
+                    answer: ["The absolute path to the user's home directory", "The numeric user ID (UID) of the user"],
+                    number: 20
+                },
+                {
+                    question: "What is true about the file /etc/localtime?",
+                    options: [
+                        "It is a plain text file containing a string such as Europe/Berlin.",
+                        "It is created and maintained by the NTP service based on the location of the system's IP address.",
+                        "It is a symlink to /sys/device/clock/ltime and always contains the current local time.",
+                        "After changing this configuration file, newtzconfig has to be run to make the changes effective.",
+                        "It is either a symlink to or a copy of a timezone information file such as /usr/share/zoneinfo/Europe/Berlin."
+                    ],
+                    answer: "It is either a symlink to or a copy of the timezone information file such as /usr/share/zoneinfo/Europe/Berlin.",
+                    number: 21
+                },
+                {
+                    question: "Which of the following statements is true regarding systemd timer units?",
+                    options: [
+                        "Timer units can only be defined within a service unit's configuration file.",
+                        "The command executed by the timer is specified in the timer's unit configuration [Cmd] section.",
+                        "A dedicated filesystem timer service, systemd-cron, handles the configuration execution of timer units.",
+                        "Timer units only exist in the system scope and are not available for user configurations.",
+                        "Each systemd timer unit controls a specific systemd timer service."
+                    ],
+                    answer: "Each of the timer unit controls a specific systemd timer service.",
+                    number: 22
+                },
+                {
+                    question: "Which of the following fields are available in the standard format of both the global /etc/crontab file as well as in user-specific crontab files? (Choose two.)",
+                    options: ["Year", "Minute", "Username", "Second", "Command"],
+                    answer: ["Minute", "Command"],
+                    number: 23
+                },
+                {
+                    question: "Which of the following commands should be executed when starting a login shell in order to change the language of messages for an internationalized program to Portuguese (pt)?",
+                    options: [
+                        "export LANGUAGE=\"pt\"",
+                        "export LC_MESSAGES=\"pt\"",
+                        "export UL_MESSAGES=\"pt\"",
+                        "export MESSAGE=\"pt\"",
+                        "export ALL_MESSAGES=\"pt\""
+                    ],
+                    answer: "export LC_MESSAGES=\"pt\"",
+                    number: 24
+                },
+                {
+                    question: "Which of the following files assigns a user to its primary group?",
+                    options: ["/etc/pgroup", "/etc/shadow", "/etc/passwd", "/etc/group", "/etc/gshadow"],
+                    answer: "/etc/passwd",
+                    number: 25
+                },
+                {
+                    question: "Which of the following steps prevents a user from obtaining an interactive login session?",
+                    options: [
+                        "Setting the UID for the user to 0.",
+                        "Running the command chsh -s /bin/false with the user name.",
+                        "Removing the user from the group staff.",
+                        "Adding the user to /etc/noaccess.",
+                        "Creating a .nologin file in the user's home directory."
+                    ],
+                    answer: "Running the command chsh -s /bin/false with the user name.",
+                    number: 26
+                },
+                {
+                    question: "Which command included in systemd supports selecting messages from the systemd journal by criteria such as time or unit name? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "journalctl",
+                    number: 27
+                },
+                {
+                    question: "Which of the following statements about systemd-journald are true? (Choose three.)",
+                    options: [
+                        "It is incompatible with syslog and cannot be installed on a system using regular syslog.",
+                        "It only processes messages of systemd and not messages of any other tools.",
+                        "It can pass log messages to syslog for further processing.",
+                        "It maintains metadata such as _UID or _PID for each message.",
+                        "It supports syslog facilities such as kern, user, and auth."
+                    ],
+                    answer: [
+                        "It can pass log messages to syslog for further processing",
+                        "It maintains metadata such as _UID or _PID for each message",
+                        "It supports syslog facilities such as kern, user, and auth"
+                    ],
+                    number: 28
+                },
+                {
+                    question: "Which command must be run after adding a new email alias to the configuration in order to make this change effective? (Specify the command without any path but including all required parameters.)",
+                    options: [],
+                    answer: "newaliases",
+                    number: 29
+                },
+                {
+                    question: "Which option in the chrony configuration file changes the initial interval of polls to a NTP server in order to speed up the initial synchronization?",
+                    options: ["iburst", "quickstart", "fast", "fsync", "flood"],
+                    answer: "iburst",
+                    number: 30
+                },
+                {
+                    question: "Which of the following commands is used to rotate, compress, and mail system logs?",
+                    options: ["logrotate", "striplog", "syslogd --rotate", "rotatelog", "logger"],
+                    answer: "logrotate",
+                    number: 31
+                },
+                {
+                    question: "Why is the correct configuration of a system's time zone important?",
+                    options: [
+                        "Because the timezone is included in checksum calculations and timezone changes invalidate existing checksums.",
+                        "Because the time zone is saved as part of the modification times of files and cannot be changed after a file is created.",
+                        "Because the environment variables LANG and LC_MESSAGES are, by default, set according to the time zone.",
+                        "Because NTP chooses servers nearby based on the configured time zone.",
+                        "Because the conversion of Unix timestamps to local time relies on the time zone configuration."
+                    ],
+                    answer: "Because the conversion of Unix timestamps to local time relies on the time zone configuration.",
+                    number: 32
+                },
+                {
+                    question: "Which command, available with all sendmail-compatible MTAs, is used to list the contents of the MTA's mail queue? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "mailq",
+                    number: 33
+                },
+                {
+                    question: "What is the top-level directory which contains the configuration files for CUPS? (Specify the full path to the directory.)",
+                    options: [],
+                    answer: "/etc/cups",
+                    number: 34
+                },
+                {
+                    question: "Which of the following commands lists all queued print jobs?",
+                    options: ["lpd", "lpr", "lp", "lsq", "lpq"],
+                    answer: "lpq",
+                    number: 35
+                },
+                {
+                    question: "Which of the following entries in /etc/syslog.conf writes all mail related events to the file /var/log/maillog and sends all critical events to the remote server logger.example.com?",
+                    options: [
+                        "mail.* /var/log/maillog mail,crit @logger.example.org",
+                        "mail.* /var/log/maillog mail.crit syslog://logger.example.org",
+                        "mail /var/log/maillog mail.crit @logger.example.org",
+                        "mail.* /var/log/maillog mail.crit @logger.example.org",
+                        "mail * /var/log/maillog mail.crit @logger.example.org"
+                    ],
+                    answer: "mail.* /var/log/maillog mail.crit @logger.example.org",
+                    number: 36
+                },
+                {
+                    question: "Which option in the /etc/ntp.conf file specifies an external NTP source to be queried for time information? (Specify only the option without any values or parameters.)",
+                    options: [],
+                    answer: "server",
+                    number: 37
+                },
+                {
+                    question: "Which of the following protocols is related to the term open relay?",
+                    options: ["SMTP", "POP3", "NTP", "IMAP", "LDAP"],
+                    answer: "SMTP",
+                    number: 38
+                },
+                {
+                    question: "Which of the following commands displays all environment and shell variables?",
+                    options: ["getargs", "lsenv", "ls", "env", "lsshell"],
+                    answer: "env",
+                    number: 39
+                },
+                {
+                    question: "Which of the following comparison operators for test work on elements in the file system? (Choose two.)",
+                    options: ["-z", "-eq", "-d", "-f", "-lt"],
+                    answer: ["-d", "-f"],
+                    number: 40
+                },
+                {
+                    question: "What information is provided by the echo $$ command?",
+                    options: [
+                        "The process ID of the current shell.",
+                        "The process ID for the following command.",
+                        "The process ID of the last command executed.",
+                        "The process ID of the last command which has been placed in the background.",
+                        "The process ID of the echo command."
+                    ],
+                    answer: "The process ID of the current shell.",
+                    number: 41
+                },
+                {
+                    question: "Which command makes the shell variable named VARIABLE visible to subshells?",
+                    options: [
+                        "export $VARIABLE",
+                        "env VARIABLE",
+                        "set $VARIABLE",
+                        "set VARIABLE",
+                        "export VARIABLE"
+                    ],
+                    answer: "export VARIABLE",
+                    number: 42
+                },
+                {
+                    question: "What output is produced by the following command sequence?\necho '1 2 3 4 5 6' | while read a b c; do\necho result $c $b $a;\ndone",
+                    options: [
+                        "result: 6 5 4",
+                        "result: 1 2 3 4 5 6",
+                        "result: 3 4 5 6 2 1",
+                        "result: 6 5 4 3 2 1",
+                        "result: 3 2 1"
+                    ],
+                    answer: "result: 3 4 5 6 2 1",
+                    number: 43
+                },
+                {
+                    question: "Which of the following configuration files should be modified to globally set shell variables for all users?",
+                    options: ["/etc/profile", "/etc/bashrc", "~/.bash_profile", "/etc/.bashrc", "/etc/shellenv"],
+                    answer: "/etc/profile",
+                    number: 44
+                },
+                {
+                    question: "What output does the command seq 10 produce?",
+                    options: [
+                        "A continuous stream of numbers increasing in increments of 10 until the command is stopped.",
+                        "It creates no output because a second parameter is missing.",
+                        "The number 0 through 9 with one number per line.",
+                        "The number 10 to standard output.",
+                        "The numbers 1 through 10 with one number per line."
+                    ],
+                    answer: "The numbers 1 through 10 with one number per line.",
+                    number: 45
+                },
+                {
+                    question: "What command lists the aliases defined in the current Bash shell? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "alias",
+                    number: 46
+                },
+                {
+                    question: "Which of the following commands can be used to limit the amount of memory a user may use?",
+                    options: ["umask", "usermod", "passwd", "ulimit", "chage"],
+                    answer: "ulimit",
+                    number: 47
+                },
+                {
+                    question: "What is a purpose of an SSH host key?",
+                    options: [
+                        "It must be sent by any SSH client in addition to a user key in order to identify the client's host.",
+                        "It is root key by which all user SSH keys must be signed.",
+                        "It provides the server's identity information to connecting SSH clients.",
+                        "It authenticates any user that logs into a remote machine from the key's host.",
+                        "It is used by system services like cron, syslog or a backup job to automatically connect to remote hosts."
+                    ],
+                    answer: "It provides the server's identity information to connecting SSH clients.",
+                    number: 48
+                },
+                {
+                    question: "What is the purpose of TCP wrapper?",
+                    options: [
+                        "Manage and adjust bandwidth used by TCP services.",
+                        "Bind a network service to a TCP port.",
+                        "Encapsulate TCP messages in IP packets.",
+                        "Add SSL support to plain text TCP services.",
+                        "Limit access to a network service."
+                    ],
+                    answer: "Limit access to a network service.",
+                    number: 49
+                },
+                {
+                    question: "Given the following excerpt of the sudo configuration:\njane ANY=NOPASSWD: /bin/kill, /bin/id, PASSWD: /sbin/fdisk\nWhich of the following statements are true? (Choose three.)",
+                    options: [
+                        "Jane can run /bin/id only after specifying her password.",
+                        "Jane can run /sbin/fdisk after specifying root's password.",
+                        "Jane can run /sbin/fdisk after specifying her password.",
+                        "Jane can run /bin/kill without specifying a password.",
+                        "Jane can run /bin/id without specifying her password."
+                    ],
+                    answer: [
+                        "Jane can run /sbin/fdisk after specifying her password",
+                        "Jane can run /bin/kill without specifying a password",
+                        "Jane can run /bin/id without specifying a password"
+                    ],
+                    number: 50
+                },
+                {
+                    question: "Which configuration file contains the default options for SSH clients?",
+                    options: [
+                        "/etc/ssh/sshd_config",
+                        "/etc/ssh/ssh",
+                        "/etc/ssh/ssh_config",
+                        "/etc/ssh/client",
+                        "/etc/ssh/ssh_client"
+                    ],
+                    answer: "/etc/ssh/ssh_config",
+                    number: 51
+                },
+                {
+                    question: "Depending on a system's configuration, which of the following files can be used to enable and disable network services running on this host?",
+                    options: ["/etc/profile", "/etc/xinetd.conf", "/etc/ports", "/etc/services", "/etc/host.conf"],
+                    answer: "/etc/xinetd.conf",
+                    number: 52
+                },
+                {
+                    question: "Which of the following commands can identify the PID of a process which opened a TCP port?",
+                    options: ["ptrace", "strace", "debug", "lsof", "nessus"],
+                    answer: "lsof",
+                    number: 53
+                },
+                {
+                    question: "When using X11 forwarding in SSH, what environment variable is automatically set in the remote shell in order to help applications to connect to the correct X11 server? (Specify only the environment variable without any additional commands or values.)",
+                    options: [],
+                    answer: "DISPLAY",
+                    number: 54
+                },
+                {
+                    question: "The presence of what file will temporarily prevent all users except root from logging into a system? (Specify the full name of the file, including path.)",
+                    options: [],
+                    answer: "/etc/nologin",
+                    number: 55
+                },
+                {
+                    question: "Which of the following commands preloads and manages existing SSH keys that are used for automatic authentication while logging in to other machines using SSH?",
+                    options: ["sshd", "ssh-keyring", "ssh-keygen", "ssh-pki", "ssh-agent"],
+                    answer: "ssh-agent",
+                    number: 56
+                },
+                {
+                    question: "On a machine running several X servers, how do programs identify the different instances of the X11 server?",
+                    options: [
+                        "By a fixed UUID that is defined in the X11 configuration file.",
+                        "By a display name like :1.",
+                        "By the name of the user that runs the X server like x11:bob.",
+                        "By a device name like /dev/X11/xservers/1.",
+                        "By a unique IPv6 address from the fe80::/64 subnet."
+                    ],
+                    answer: "By a display name like :1.",
+                    number: 57
+                },
+                {
+                    question: "What is the purpose of a screen reader?",
+                    options: [
+                        "It manages virtual keyboards on touch screen displays.",
+                        "It reads the parameters of the attached monitors and creates an appropriate X11 configuration.",
+                        "It displays lines and markers to help people use speed reading techniques.",
+                        "It manages and displays files that contain e-books.",
+                        "It reads displayed text to accommodate the needs of blind or visually impaired people."
+                    ],
+                    answer: "It reads displayed text to accommodate the needs of blind or visually impaired people.",
+                    number: 58
+                },
+                {
+                    question: "The X11 configuration file xorg.conf is grouped into sections. How is the content of the section SectionName represented?",
+                    options: [
+                        "It is placed in curly brackets as in Section SectionName {...}.",
+                        "It is placed between the tags <Section name=\"SectionName\"> and </Section>.",
+                        "It is placed between a line containing Section \"SectionName\" and a line containing EndSection.",
+                        "It is placed after the row [SectionName].",
+                        "It is placed after an initial unindented Section \"SectionName\" and must be indented by exactly one tab character."
+                    ],
+                    answer: "It is placed between a line containing Section \"SectionName\" and a line containing EndSection.",
+                    number: 59
+                },
+                {
+                    question: "Which of the following features are provided by SPICE? (Choose two.)",
+                    options: [
+                        "Connecting local USB devices to remote applications.",
+                        "Accessing graphical applications on a remote host.",
+                        "Replacing Xorg as local X11 server.",
+                        "Downloading and locally installing applications from a remote machine.",
+                        "Uploading and running a binary program on a remote machine."
+                    ],
+                    answer: ["Connecting local USB devices to remote applications", "Accessing graphical applications on a remote host"],
+                    number: 60
+                },
+                {
+                    question: "Where is the systemd journal stored?",
+                    options: [
+                        "/var/jlog/ and /var/jlogd/",
+                        "/proc/log/ and /proc/klog/",
+                        "/run/log/journal/ or /var/log/journal/",
+                        "/var/log/syslog.bin or /var/log/syslog.jrn",
+                        "/etc/systemd/journal/ or /usr/lib/systemd/journal/"
+                    ],
+                    answer: "/run/log/journal/ or /var/log/journal/",
+                    number: 61
+                },
+                {
+                    question: "Which of the following is true regarding the command sendmail?",
+                    options: [
+                        "With any MTA, the sendmail command must be run periodically by the cron daemon.",
+                        "When using systemd, sendmail is an alias to relayctl.",
+                        "The sendmail command prints the MTA's queue history of which mails have been sent successfully.",
+                        "It is only available when the sendmail MTA is installed.",
+                        "All common MTAs, including Postfix and Exim, provide a sendmail command."
+                    ],
+                    answer: "All common MTAs, including Postfix and Exim, provide a sendmail command.",
+                    number: 62
+                },
+                {
+                    question: "Which file inside the CUPS configuration directory contains the settings of the printers?",
+                    options: ["cups-devices.conf", "snmp.conf", "printers.conf", "printcap.conf", "cupsd.conf"],
+                    answer: "printers.conf",
+                    number: 63
+                },
+                {
+                    question: "Which file is processed by newaliases? (Specify the full name of the file, including path.)",
+                    options: [],
+                    answer: "/etc/mail/aliases",
+                    number: 64
+                },
+                {
+                    question: "Which of the following are syslog facilities? (Choose two.)",
+                    options: ["local5", "accounting", "mail", "postmaster", "remote"],
+                    answer: ["local5", "mail"],
+                    number: 65
+                },
+                {
+                    question: "Which of the following parameters are used for journalctl to limit the time frame of the output? (Choose two.)",
+                    options: ["--since=", "--from=", "--until=", "--upto=", "--date="],
+                    answer: ["--since=", "--until="],
+                    number: 66
+                },
+                {
+                    question: "What is true regarding the file ~/.forward?",
+                    options: [
+                        "When configured correctly ~/.forward can be used to forward each incoming mail to one or more other recipients.",
+                        "After editing ~/.forward the user must run newaliases to make the mail server aware of the changes.",
+                        "Using ~/.forward, root may configure any email address whereas all other users may configure only their own addresses.",
+                        "As ~/.forward is owned by the MTA and not writable by the user, it must be edited using the editaliases command.",
+                        "By default, only ~/.forward files of users in the group mailq are processed while all other user's ~/.forward files are ignored."
+                    ],
+                    answer: "When configured correctly ~/.forward can be used to forward each incoming mail to one or more other recipients.",
+                    number: 67
+                },
+                {
+                    question: "Which of the following commands display a list of jobs in the print queue? (Choose two.)",
+                    options: ["cups --list", "lprm -l", "lpstat", "lpr -q", "lpq"],
+                    answer: ["lpstat", "lpq"],
+                    number: 68
+                },
+                {
+                    question: "On a system using systemd-journald, which of the following commands add the message Howdy to the system log? (Choose two.)",
+                    options: [
+                        "append Howdy",
+                        "logger Howdy",
+                        "systemd-cat echo Howdy",
+                        "echo Howdy > /dev/journal",
+                        "journalctl add Howdy"
+                    ],
+                    answer: ["logger Howdy", "systemd-cat echo Howdy"],
+                    number: 69
+                },
+                {
+                    question: "Which of the following options in the chrony configuration file define remote time sources? (Choose two.)",
+                    options: ["source", "clock", "remote", "pool", "server"],
+                    answer: ["pool", "server"],
+                    number: 70
+                },
+                {
+                    question: "Which command is used to sync the hardware clock to the system clock? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "hwclock",
+                    number: 71
+                },
+                {
+                    question: "Which of the following situations is observed and corrected by an NTP client?",
+                    options: [
+                        "The skew in time between the system clock and the computer's hardware clock.",
+                        "The physical location and the timezone configuration.",
+                        "Changes in the time zone of the current computer's location.",
+                        "Adjustment needed to support Daylight Saving Time.",
+                        "The skew in time between the system clock and the reference clock."
+                    ],
+                    answer: "The skew in time between the system clock and the reference clock.",
+                    number: 72
+                },
+                {
+                    question: "If an alias ls exists, which of the following commands updates the alias to point to the command ls -l instead of the alias's current target?",
+                    options: [
+                        "set ls='ls -l'",
+                        "alias ls='ls -l'",
+                        "alias --force ls='ls -l'",
+                        "alias --update ls ls='ls -l'",
+                        "realias ls='ls -l'"
+                    ],
+                    answer: "alias ls='ls -l'",
+                    number: 73
+                },
+                {
+                    question: "Which of the following commands puts the output of the command date into the shell variable mydate?",
+                    options: [
+                        "mydate=\"date\"",
+                        "mydate=\"exec date\"",
+                        "mydate=\"$(date)\"",
+                        "mydate=\"${date}\"",
+                        "mydate=\"$((date))\""
+                    ],
+                    answer: "mydate=\"$(date)\"",
+                    number: 74
+                },
+                {
+                    question: "What information is shown by the echo $? command?",
+                    options: [
+                        "The process ID of the echo command.",
+                        "The exit value of the command executed immediately before echo.",
+                        "The process ID which will be used for the next command.",
+                        "The exit value of the echo command.",
+                        "The process ID of the current shell."
+                    ],
+                    answer: "The exit value of the command executed immediately before echo.",
+                    number: 75
+                },
+                {
+                    question: "Which of the following files is not read directly by a Bash login shell?",
+                    options: ["~/.bashrc", "~/.bash_profile", "~/.bash_login", "~/.profile", "/etc/profile"],
+                    answer: "~/.bashrc",
+                    number: 76
+                },
+                {
+                    question: "What is true about the file .profile in a user's home directory?",
+                    options: [
+                        "It must be executable.",
+                        "It must call the binary of the login shell.",
+                        "It must use a valid shell script syntax.",
+                        "It must start with a shebang.",
+                        "It must be readable for its owner only."
+                    ],
+                    answer: "It must use a valid shell script syntax.",
+                    number: 77
+                },
+                {
+                    question: "What is true regarding the statement beginning with #! that is found in the first line of a script? (Choose two.)",
+                    options: [
+                        "It prevents the scripts from being executed until the ! is removed.",
+                        "It triggers the installation of the script's interpreter.",
+                        "It specifies the path and the arguments of the interpreter used to run the script.",
+                        "It defines the character encoding of the script.",
+                        "It is a comment that is ignored by the script interpreter."
+                    ],
+                    answer: [
+                        "It triggers the installation of the script's interpreter",
+                        "It specifies the path and the arguments of the interpreter used to run the script"
+                    ],
+                    number: 78
+                },
+                {
+                    question: "What output does the command seq 1 5 20 produce?",
+                    options: ["1\n6\n11\n16", "1\n2\n3\n4\n5", "1\n5\n10\n15", "2\n3\n4\n5\n6", "5\n10\n15\n20"],
+                    answer: "1\n6\n11\n16",
+                    number: 79
+                },
+                {
+                    question: "Which of the following commands lists all defined variables and functions within Bash?",
+                    options: ["env", "export", "env -a", "set", "echo $ENV"],
+                    answer: "set",
+                    number: 80
+                },
+                {
+                    question: "What information related to a user account is modified using the chage command?",
+                    options: [
+                        "Default ownership for new files",
+                        "Group membership",
+                        "Set of commands available to the user",
+                        "Password expiry information",
+                        "Default permissions for new files"
+                    ],
+                    answer: "Password expiry information",
+                    number: 81
+                },
+                {
+                    question: "Which command is used to set restrictions on the size of a core file that is created for a user when a program crashes?",
+                    options: ["core", "edquota", "quota", "ulimit", "ktrace"],
+                    answer: "ulimit",
+                    number: 82
+                },
+                {
+                    question: "How do shadow passwords improve the password security in comparison to standard no-shadow password?",
+                    options: [
+                        "Regular users do not have access to the password hashes of shadow passwords.",
+                        "Every shadow password is valid for 45 days and must be changed afterwards.",
+                        "The system's host key is used to encrypt all shadow passwords.",
+                        "Shadow passwords are always combined with a public key that has to match the user's private key.",
+                        "Shadow passwords are stored in plain text and can be checked for weak passwords."
+                    ],
+                    answer: "Regular users do not have access to the password hashes of shadow passwords.",
+                    number: 83
+                },
+                {
+                    question: "After editing the TCP wrapper configuration to grant specific hosts access to a service, when do these changes become effective?",
+                    options: [
+                        "The new configuration becomes effective after restarting the respective service.",
+                        "The new configuration becomes effective at the next system reboot.",
+                        "The new configuration becomes effective when the last established connection to the service is closed.",
+                        "The new configuration becomes effective after restarting the tcpd service.",
+                        "The new configuration becomes effective immediately for all new connections."
+                    ],
+                    answer: "The new configuration becomes effective immediately for all new connections.",
+                    number: 84
+                },
+                {
+                    question: "What is true regarding public and private SSH keys? (Choose two.)",
+                    options: [
+                        "For each user account, there is exactly one key pair that can be used to log into that account.",
+                        "The private key must never be revealed to anyone.",
+                        "Several different public keys may be generated for the same private key.",
+                        "To maintain the private key's confidentiality, the SSH key pair must be created by its owner.",
+                        "To allow remote logins, the user's private key must be copied to the remote server."
+                    ],
+                    answer: ["The private key must never be revealed to anyone", "To maintain the private key's confidentiality, the SSH key pair must be created by its owner"],
+                    number: 85
+                },
+                {
+                    question: "Which of the following commands finds all files owned by root that have the SetUID bit set?",
+                    options: [
+                        "find / -user root -perm -4000",
+                        "find / -user 0 -mode +s",
+                        "find / -owner root -setuid",
+                        "find / -owner 0 -permbits 0x100000000",
+                        "find / -filter uid=1 -filter pers=u+s"
+                    ],
+                    answer: "find / -user root -perm -4000",
+                    number: 86
+                },
+                {
+                    question: "What command is used to add OpenSSH private keys to a running ssh-agent instance? (Specify the command name only without any path.)",
+                    options: [],
+                    answer: "ssh-add",
+                    number: 87
+                },
+                {
+                    question: "Which directory holds configuration files for xinetd services? (Specify the full path to the directory.)",
+                    options: [],
+                    answer: "/etc/xinetd.d/",
+                    number: 88
+                },
+                {
+                    question: "Which mechanism does ssh use to interact with the SSH agent?",
+                    options: [
+                        "Connecting to port 2222 which is used by the system-wide SSH agent.",
+                        "Using the fixed socket .ssh-agent/ipc.",
+                        "Creating an alias replacing ssh with calls to ssh-agent.",
+                        "Starting ssh-agent as a child process for each ssh invocation.",
+                        "Evaluating environment variables such as SSH_AUTH_SOCK."
+                    ],
+                    answer: "Evaluating environment variables such as SSH_AUTH_SOCK.",
+                    number: 89
+                },
+                {
+                    question: "Which parameter of the ssh command specifies the location of the private key used for login attempts? (Specify only the option name without any values or parameters.)",
+                    options: [],
+                    answer: "-i",
+                    number: 90
+                },
+                {
+                    question: "Which of the following is true about IPv6?",
+                    options: [
+                        "IPv6 no longer supports broadcast addresses.",
+                        "With IPv6, the TCP port numbers of most services have changed.",
+                        "IPv4 addresses can be used without any change with IPv6.",
+                        "IPv6 no longer supports multicast addresses.",
+                        "For IPv6, UDP and TCP have been replaced by the Rapid Transmission Protocol RTP."
+                    ],
+                    answer: "IPv6 no longer supports broadcast addresses.",
+                    number: 91
+                },
+                {
+                    question: "What is true about the following command?\nnmcli device wifi connect WIFIoI",
+                    options: [
+                        "NetworkManager opens a new public hotspot with the SSID WIFIoI.",
+                        "NetworkManager creates an unconfigured new virtual network interface named WIFIoI.",
+                        "NetworkManager creates a new wifi connection WIFIoI and activates it.",
+                        "NetworkManager returns an error in case the connection WIFIoI does not exist.",
+                        "NetworkManager returns an error because WIFIoI is an invalid wifi device."
+                    ],
+                    answer: "NetworkManager returns an error in case the connection WIFIoI does not exist.",
+                    number: 92
+                },
+                {
+                    question: "Which of the commands below might have produced the following output?\n; global options: +cmd\n; Got answer:\n; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 40997\n; flags: qr rd ra; QUERY: 1, ANSWER: 0, AUTHORITY: 1, ADDITIONAL: 1\n; OPT PSEUDOSECTION:\n; EDNS: version: 0, flags:; udp: 1280\n; QUESTION SECTION:\n;www.example.org. IN NS\n; AUTHORITY SECTION:\nexample.org. 3600 IN SOA sns.dns.icann.org. noc.dns.icann.org. 2016110776 7200 3600 1209600 3600\n; Query time: 144 msec\n; SERVER: 127.0.1.1#53(127.0.1.1)\n; WHEN: Sat Apr 01 21:22:46 BST 2017\n; MSG SIZE rcvd: 114",
+                    options: [
+                        "dig -t mx www.example.org",
+                        "dig www.example.org",
+                        "dig -t ns www.example.org",
+                        "dig -t a www.example.org",
+                        "dig -t soa www.example.org"
+                    ],
+                    answer: "dig -t ns www.example.org",
+                    number: 93
+                },
+                {
+                    question: "Which parameter is missing in the command\nip link set dev eth0\nto activate the previously inactive network interface eth0? (Specify the parameter only without any command, path or additional options.)",
+                    options: [],
+                    answer: "up",
+                    number: 94
+                },
+                {
+                    question: "Which of the following states can NetworkManager show regarding the system's network connectivity? (Choose two.)",
+                    options: ["up", "portal", "full", "login-required", "firewalled"],
+                    answer: ["portal", "full"],
+                    number: 95
+                },
+                {
+                    question: "Which of the following are valid host addresses for the subnet 203.0.113.64/28? (Choose two.)",
+                    options: ["203.0.113.64", "203.0.113.78", "203.0.113.65", "203.0.113.80", "203.0.113.81"],
+                    answer: ["203.0.113.78", "203.0.113.65"],
+                    number: 96
+                },
+                {
+                    question: "Which of the following keywords can be used in the file /etc/resolv.conf? (Choose two.)",
+                    options: ["substitute", "lookup", "search", "nameserver", "method"],
+                    answer: ["search", "nameserver"],
+                    number: 97
+                },
+                {
+                    question: "How does the ping command work by default?",
+                    options: [
+                        "It sends an ICMP Echo Request to a remote host and waits to receive an ICMP Echo Response in return.",
+                        "It sends an ARP request to a remote host and waits to receive an ARP response in return.",
+                        "It sends a TCP SYN packet to a remote host and waits to receive an TCP ACK response in return.",
+                        "It sends a broadcast packet to all hosts on the net and waits to receive, among others, a response from the target system.",
+                        "It sends a UDP packet to port 0 of the remote host and waits to receive a UDP error response in return."
+                    ],
+                    answer: "It sends an ICMP Echo Request to a remote host and waits to receive an ICMP Echo Response in return.",
+                    number: 98
+                },
+                {
+                    question: "Which of the following commands display the number of bytes transmitted and received via the eth0 network interface? (Choose two.)",
+                    options: [
+                        "route -v via eth0",
+                        "ip stats show dev eth0",
+                        "netstat -s -i eth0",
+                        "ifconfig eth0",
+                        "ip -s link show eth0"
+                    ],
+                    answer: ["ifconfig eth0", "ip -s link show eth0"],
+                    number: 99
+                },
+                {
+                    question: "Given the following routing table:\nKernel IP routing table\nDestination     Gateway         Genmask         Flags Metric Ref    Use Iface\n0.0.0.0         0.0.0.0         0.0.0.0         U     0      0        0 wlan0\n192.168.1.0     0.0.0.0         255.255.255.0   U     0      0        0 eth0\n192.168.2.0     192.168.1.1     255.255.255.0   UG    0      0        0 eth0\n192.168.178.0   0.0.0.0         255.255.255.0   U     0      0        0 wlan0\nHow would an outgoing packet to the destination 192.168.2.150 be handled?",
+                    options: [
+                        "It would be passed to the default router 192.168.178.1 on wlan0.",
+                        "It would be directly transmitted on the device eth0.",
+                        "It would be passed to the default router 255.255.255.0 on eth0.",
+                        "It would be passed to the router 192.168.1.1 on eth0.",
+                        "It would be directly transmitted on the device wlan0."
+                    ],
+                    answer: "It would be directly transmitted on the device eth0.",
+                    number: 100
+                },
+                {
+                    question: "Which of the following commands will delete the default gateway from the system's IP routing table? (Choose two.)",
+                    options: [
+                        "ifconfig unset default",
+                        "route del default",
+                        "ip route del default",
+                        "netstat -r default",
+                        "sysctl ipv4.default_gw=0"
+                    ],
+                    answer: ["route del default", "ip route del default"],
+                    number: 101
+                },
+                {
+                    question: "What command enables a network interface according to distribution-specific configuration, such as /etc/network/interfaces or /etc/sysconfig/network-scripts/ifcfg-eth0? (Specify only the command without any path or parameters.)",
+                    options: [],
+                    answer: "ifup",
+                    number: 102
+                },
+                {
+                    question: "What is true about NetworkManager on a Linux system that uses its distribution's mechanisms to configure network interfaces? (Choose two.)",
+                    options: [
+                        "NetworkManager reconfigures all network interfaces to use DHCP unless they are specifically managed by NetworkManager.",
+                        "NetworkManager must be explicitly enabled for each interface it should manage.",
+                        "NetworkManager by default does not change interfaces which are already configured.",
+                        "NetworkManager disables all interfaces which were not configured by NetworkManager.",
+                        "NetworkManager can be configured to use the distribution's network interface configuration."
+                    ],
+                    answer: [
+                        "NetworkManager must be explicitly enabled for each interface it should manage",
+                        "NetworkManager by default does not change interfaces which are already configured"
+                    ],
+                    number: 103
+                },
+                {
+                    question: "Which standardized TCP port is used by HTTPS services?",
+                    options: ["25", "80", "8080", "443", "636"],
+                    answer: "443",
+                    number: 104
+                },
+                {
+                    question: "Which of the following environment variables can be defined in locale.conf? (Choose two.)",
+                    options: ["LC_ALL", "LC_USE", "LC_UTF8", "LC_GEOGRAPHY", "LC_TIME"],
+                    answer: ["LC_ALL", "LC_TIME"],
+                    number: 105
+                },
+                {
+                    question: "Which of the following commands sets the system's time zone to the Canadian Eastern Time?",
+                    options: [
+                        "localegen -t -f /usr/share/zoneinfo/Canada/Eastern > /etc/locate.tz",
+                        "tzconf /etc/localtime",
+                        "sysctl -w clock.tz='Canada/Eastern'",
+                        "modprobe tz_ca_est",
+                        "ln -sf /usr/share/zoneinfo/Canada/Eastern /etc/localtime"
+                    ],
+                    answer: "ln -sf /usr/share/zoneinfo/Canada/Eastern /etc/localtime",
+                    number: 106
+                },
+                {
+                    question: "What option to useradd creates a new user's home directory and provisions it with a set of standard files? (Specify only the option name without any values or parameters.)",
+                    options: [],
+                    answer: "-m",
+                    number: 107
+                },
+                {
+                    question: "How can a specific user be prevented from scheduling tasks with at?",
+                    options: [
+                        "By adding the specific user to the /etc/at.allow file.",
+                        "By adding the specific user to the /etc/at.allow file.",
+                        "By adding the specific user to the /etc/at.deny file.",
+                        "By adding the specific user to the nojobs group.",
+                        "By executing the atd --deny [user] command."
+                    ],
+                    answer: "By adding the specific user to the /etc/at.deny file.",
+                    number: 108
+                },
+                {
+                    question: "Which file contains the data of the last change of a user's password?",
+                    options: ["/etc/gshadow", "/etc/passwd", "/etc/pwdlog", "/var/log/shadow", "/etc/shadow"],
+                    answer: "/etc/shadow",
+                    number: 109
+                },
+                {
+                    question: "Which of the following fields can be found in the /etc/group file? (Choose two.)",
+                    options: [
+                        "The home directory of the group.",
+                        "The list of users that belong to the group.",
+                        "The name of the group.",
+                        "The default group ACL.",
+                        "The description of the group."
+                    ],
+                    answer: ["The list of users that belong to the group", "The name of the group"],
+                    number: 110
+                },
+                {
+                    question: "Which of the following sections exists in a systemd timer unit?",
+                    options: ["[Events]", "[Timer]", "[cron]", "[Schedule]", "[Trigger]"],
+                    answer: "[Timer]",
+                    number: 111
+                },
+                {
+                    question: "Which of the following getent invocations lists all existing users?",
+                    options: ["getent homes", "getent uids", "getent passwd", "getent users", "getent logins"],
+                    answer: "getent passwd",
+                    number: 112
+                },
+                {
+                    question: "Given the following user's crontab entry:\n15 14 * * 1-5 /usr/local/bin/example.sh\nWhen will the script /usr/local/bin/example.sh be executed?",
+                    options: [
+                        "At 14:15 local time, January till May.",
+                        "At 15:14 local time, 1st to 5th day of month.",
+                        "At 14:15 local time, February till June.",
+                        "At 14:15 local time, 1st to 5th day of month.",
+                        "At 14:15 local time, Monday to Friday."
+                    ],
+                    answer: "At 14:15 local time, Monday to Friday.",
+                    number: 113
+                },
+                {
+                    question: "If neither cron.allow nor cron.deny exist in /etc/, which of the following is true?",
+                    options: [
+                        "Without additional configuration, all users may create user specific crontabs.",
+                        "Without additional configuration, only root may create user specific crontabs.",
+                        "The cron daemon will refuse to start and report missing files in the system's logfile.",
+                        "When a user creates a user specific crontab the system administrator must approve it explicitly.",
+                        "The default settings of /etc/crond.conf define whether or not user specific crontabs are generally allowed or not."
+                    ],
+                    answer: "The default settings of /etc/crond.conf define whether or not user specific crontabs are generally allowed or not.",
+                    number: 114
+                },
+                {
+                    question: "What is the purpose of the iconv command?",
+                    options: [
+                        "It converts bitmap images from one format to another such as PNG to JPEG.",
+                        "It verifies that the root directory tree complies to all conventions from the Filesystem Hierarchy Standard (FHS).",
+                        "It converts files from one character set to another.",
+                        "It changes the mode of an inode in the ext4 filesystem.",
+                        "It displays additional meta information from icon files ending in .ico."
+                    ],
+                    answer: "It converts files from one character set to another.",
+                    number: 115
+                },
+                {
+                    question: "Which character in the password field of /etc/passwd is used to indicate that the encrypted password is stored in /etc/shadow?",
+                    options: ["*", "-", "s", "#", "x"],
+                    answer: "x",
+                    number: 116
+                },
+                {
+                    question: "What does the term Braille Display refer to?",
+                    options: [
+                        "A standardized high contrast graphical theme for desktop applications.",
+                        "A Linux desktop environment similar to KDE and GNOME.",
+                        "A legacy display technology superseded by LCD.",
+                        "A physical representation of characters using small dots.",
+                        "A standard file format for data exchange, similar to XML."
+                    ],
+                    answer: "A physical representation of characters using small dots.",
+                    number: 117
+                },
+                {
+                    question: "Which environment variable is used by an X11 client to determine the X Server to connect to? (Specify only the variable name without any preceding commands or values.)",
+                    options: [],
+                    answer: "DISPLAY",
+                    number: 118
+                },
+                {
+                    question: "Which of the following tasks are handled by a display manager like XDM or KDM? (Choose two.)",
+                    options: [
+                        "Configure additional devices like new monitors or projectors when they are attached.",
+                        "Start and prepare the desktop environment for the user.",
+                        "Create an X11 configuration file for the current graphic devices and monitors.",
+                        "Lock the screen when the user was inactive for a configurable amount of time.",
+                        "Handle the login of a user."
+                    ],
+                    answer: ["Start and prepare the desktop environment for the user", "Handle the login of a user"],
+                    number: 119
+                },
+                {
+                    question: "Which of the following protocols is designed to access the video card output of a virtual machine?",
+                    options: ["KDE", "X11", "Xfce", "SPICE", "XDMCP"],
+                    answer: "SPICE",
+                    number: 120
+                }
+            ];
+
+            let currentQuestionIndex = 0;
+            let isRandomized = false;
+            let usedQuestions = [];
+            let startTime;
+
+            const questionNumberEl = document.getElementById('questionNumber');
+            const answerNumberEl = document.getElementById('answerNumber');
+            const questionEl = document.getElementById('question');
+            const optionsEl = document.getElementById('options');
+            const answerEl = document.getElementById('answer');
+            const cardEl = document.getElementById('card');
+            const randomToggleBtn = document.getElementById('randomToggle');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const searchInput = document.getElementById('searchInput');
+            const searchBtn = document.getElementById('searchBtn');
+            const timerFront = document.getElementById('timerFront');
+            const timerBack = document.getElementById('timerBack');
+
+            function startTimer() {
+                startTime = Date.now();
+                updateTimer();
+            }
+
+            function updateTimer() {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const hours = String(Math.floor(elapsed / 3600)).padStart(2, '0');
+                const minutes = String(Math.floor((elapsed % 3600) / 60)).padStart(2, '0');
+                const seconds = String(elapsed % 60).padStart(2, '0');
+                const timeString = `Time: ${hours}:${minutes}:${seconds}`;
+                timerFront.textContent = timeString;
+                timerBack.textContent = timeString;
+                requestAnimationFrame(updateTimer);
+            }
+
+            function displayQuestion() {
+                const question = questions[currentQuestionIndex];
+                questionNumberEl.textContent = `Question ${question.number}`;
+                answerNumberEl.textContent = `Question ${question.number}`;
+                questionEl.textContent = question.question;
+                optionsEl.innerHTML = '';
+                question.options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option;
+                    button.className = 'bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 w-full';
+                    button.addEventListener('click', () => cardEl.classList.toggle('flipped'));
+                    optionsEl.appendChild(button);
+                });
+                answerEl.textContent = `Answer: ${Array.isArray(question.answer) ? question.answer.join(', ') : question.answer}`;
+                cardEl.classList.remove('flipped');
+                searchInput.value = '';
+            }
+
+            function getNextQuestionIndex() {
+                if (isRandomized) {
+                    let nextIndex;
+                    do {
+                        nextIndex = Math.floor(Math.random() * questions.length);
+                    } while (usedQuestions.includes(nextIndex) && usedQuestions.length < questions.length);
+                    if (usedQuestions.length >= questions.length) {
+                        usedQuestions = [];
+                    }
+                    usedQuestions.push(nextIndex);
+                    return nextIndex;
+                } else {
+                    return (currentQuestionIndex + 1) % questions.length;
+                }
+            }
+
+            function getPrevQuestionIndex() {
+                return (currentQuestionIndex - 1 + questions.length) % questions.length;
+            }
+
+            randomToggleBtn.addEventListener('click', () => {
+                isRandomized = !isRandomized;
+                randomToggleBtn.textContent = isRandomized ? 'Disable Randomization' : 'Enable Randomization';
+                usedQuestions = [];
+            });
+
+            nextBtn.addEventListener('click', () => {
+                currentQuestionIndex = getNextQuestionIndex();
+                displayQuestion();
+            });
+
+            prevBtn.addEventListener('click', () => {
+                currentQuestionIndex = getPrevQuestionIndex();
+                displayQuestion();
+            });
+
+            cardEl.addEventListener('click', () => {
+                cardEl.classList.toggle('flipped');
+            });
+
+            searchBtn.addEventListener('click', () => {
+                const input = parseInt(searchInput.value);
+                if (input >= 1 && input <= 120) {
+                    currentQuestionIndex = input - 1;
+                    displayQuestion();
+                } else {
+                    alert('Please enter a valid question number between 1 and 120.');
+                }
+            });
+
+            searchInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    searchBtn.click();
+                }
+            });
+
+            // Initialize
+            startTimer();
+            displayQuestion();
+        </script>
+    </div>
+</body>
+</html>
